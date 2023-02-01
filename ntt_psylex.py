@@ -453,47 +453,69 @@ class psylex71_dataset(torch.utils.data.Dataset):
         target:str='phon',
         is_print:bool = True):
 
+        # ソースとターゲットを設定しておく
+
         if source == 'orth':
             self.source_vocab = self.orth_vocab
             self.source_ids = 'orth_ids'
             self.source_maxlen = self.max_orth_length
+            self.source_ids2tkn = self.orth_ids2tkn
+            self.source_tkn2ids = self.orth_tkn2ids
         elif source == 'phon':
             self.source_vocab = self.phon_vocab
             self.source_ids = 'phon_ids'
             self.source_maxlen = self.max_phon_length
+            self.source_ids2tkn = self.phon_ids2tkn
+            self.source_tkn2ids = self.phon_tkn2ids
         elif source == 'mora':
             self.source_vocab = self.mora_vocab
             self.source_ids = 'mora_ids'
             self.source_maxlen = self.max_mora_length
+            #self.source_ids2tkn = self.mora_ids2tkn
+            #self.source_tkn2ids = self.mora_tkn2ids
         elif source == 'mora_p':
             self.source_vocab = self.mora_p_vocab
             self.source_ids = 'mora_p_ids'
             self.source_maxlen = self.max_mora_p_length
+            #self.source_ids2tkn = self.mora_p_ids2tkn
+            #self.source_tkn2ids = self.mora_p_tkn2ids
         elif source == 'mora_p_r':
             self.source_vocab = self.mora_p_vocab
             self.source_ids = 'mora_p_ids_r'
             self.source_maxlen = self.max_mora_p_length
+            #self.source_ids2tkn = self.mora_p_r_ids2tkn
+            #self.source_tkn2ids = self.mora_p_r_tkn2ids
 
         if target == 'orth':
             self.target_vocab = self.orth_vocab
             self.target_ids = 'orth_ids'
             self.target_maxlen = self.max_orth_length
+            self.target_ids2tkn = self.orth_ids2tkn
+            self.target_tkn2ids = self.orth_tkn2ids
         elif target == 'phon':
             self.target_vocab = self.phon_vocab
             self.target_ids = 'phon_ids'
             self.target_maxlen = self.max_phon_length
+            self.target_ids2tkn = self.phon_ids2tkn
+            self.target_tkn2ids = self.phon_tkn2ids
         elif target == 'mora':
             self.target_vocab = self.mora_vocab
             self.target_ids = 'mora_ids'
             self.target_maxlen = self.max_mora_length
+            #self.target_ids2tkn = self.mora_ids2tkn
+            #self.target_tkn2ids = self.mora_tkn2ids
         elif target == 'mora_p':
             self.target_vocab = self.mora_p_vocab
             self.target_ids = 'mora_p_ids'
             self.target_maxlen = self.max_mora_p_length
+            #self.target_ids2tkn = self.mora_p_ids2tkn
+            #self.target_tkn2ids = self.mora_p_tkn2ids
         elif target == 'mora_p_r':
             self.target_vocab = self.mora_p_vocab
             self.target_ids = 'mora_p_ids_r'
             self.target_maxlen = self.max_mora_p_length
+            #self.target_ids2tkn = self.mora_p_r_ids2tkn
+            #self.target_tkn2ids = self.mora_p__r_tkn2ids
 
         if is_print:
             print(colored(f'self.source:{self.source}', 'blue',
@@ -560,7 +582,7 @@ class psylex71_dataset(torch.utils.data.Dataset):
 
         if ps71_fname == None:
             # データファイルの保存してあるディレクトリの指定
-            ntt_dir = 'triangle2023'
+            ntt_dir = 'ccap'
             psy71_fname = 'psylex71utf8.txt'  # ファイル名
             psy71_fname = 'psylex71utf8.txt.gz'  # ファイル名
             # with gzip.open(os.path.join(ntt_dir,psy71_fname), 'r') as f:
