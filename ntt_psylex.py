@@ -560,7 +560,7 @@ class psylex71_dataset(torch.utils.data.Dataset):
 
         if ps71_fname == None:
             # データファイルの保存してあるディレクトリの指定
-            ntt_dir = 'ccap'
+            ntt_dir = 'triangle2023'
             psy71_fname = 'psylex71utf8.txt'  # ファイル名
             psy71_fname = 'psylex71utf8.txt.gz'  # ファイル名
             # with gzip.open(os.path.join(ntt_dir,psy71_fname), 'r') as f:
