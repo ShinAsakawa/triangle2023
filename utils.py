@@ -11,77 +11,6 @@ import jaconv
 
 device="cuda:0" if torch.cuda.is_available() else "cpu"
 
-class EncoderRNN(nn.Module):
-    """RNNによる符号化器"""
-    def __init__(self,
-            n_inp:int=0,
-            n_hid:int=0):
-            #device=device):
-        super().__init__()
-        self.n_hid = n_hid if n_hid != 0 else 8
-        self.n_inp = n_inp if n_inp != 0 else 8
-
-        self.embedding = nn.Embedding(n_inp, n_hid)
-        self.gru = nn.GRU(n_hid, n_hid)
-
-    def forward(self,
-                inp:int=0,
-                hid:int=0,
-                device=device
-               ):
-        embedded = self.embedding(inp).view(1, 1, -1)
-        out = embedded
-        out, hid = self.gru(out, hid)
-        return out, hid
-
-    def initHidden(self)->torch.Tensor:
-        return torch.zeros(1, 1, self.n_hid, device=device)
-
-
-class AttnDecoderRNN(nn.Module):
-    """注意付き復号化器の定義"""
-    def __init__(self,
-                 n_hid:int=0,
-                 n_out:int=0,
-                 dropout_p:float=0.0,
-                 max_length:int=0):
-        super().__init__()
-        self.n_hid = n_hid
-        self.n_out = n_out
-        self.dropout_p = dropout_p
-        self.max_length = max_length
-
-        self.embedding = nn.Embedding(self.n_out, self.n_hid)
-        self.attn = nn.Linear(self.n_hid * 2, self.max_length)
-        self.attn_combine = nn.Linear(self.n_hid * 2, self.n_hid)
-        self.dropout = nn.Dropout(self.dropout_p)
-        self.gru = nn.GRU(self.n_hid, self.n_hid)
-        self.out = nn.Linear(self.n_hid, self.n_out)
-
-    def forward(self,
-                inp:int=0,
-                hid:int=0,
-                encoder_outputs:torch.Tensor=None,
-                device=device):
-        embedded = self.embedding(inp).view(1, 1, -1)
-        embedded = self.dropout(embedded)
-
-        attn_weights = F.softmax(self.attn(torch.cat((embedded[0], hid[0]), 1)), dim=1)
-        attn_applied = torch.bmm(attn_weights.unsqueeze(0), encoder_outputs.unsqueeze(0))
-
-        out = torch.cat((embedded[0], attn_applied[0]), 1)
-        out = self.attn_combine(out).unsqueeze(0)
-
-        out = F.relu(out)
-        out, hid = self.gru(out, hid)
-
-        out = F.log_softmax(self.out(out[0]), dim=1)
-        return out, hid, attn_weights
-
-    def initHidden(self)->torch.Tensor:
-        return torch.zeros(1, 1, self.n_hid, device=device)
-
-
 def convert_ids2tensor(
     sentence_ids:list,
     device:torch.device=device):
@@ -152,32 +81,32 @@ def evaluate(
     max_length:int=1,
     source_vocab:list=None,
     target_vocab:list=None,
-    source_ids:list=None,
-    target_ids:list=None,
-    device=device)->(list,torch.LongTensor):
+    #source_ids:list=None,
+    #target_ids:list=None,
+    device=device):
 
     with torch.no_grad():
         input_tensor = convert_ids2tensor(input_ids)
         input_length = input_tensor.size()[0]
-        encoder_hidden = encoder.initHidden()
+        encoder_hid = encoder.initHidden()
 
         encoder_outputs = torch.zeros(max_length, encoder.n_hid, device=device)
 
         for ei in range(input_length):
-            encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
-            encoder_outputs[ei] += encoder_output[0, 0]
+            encoder_out, encoder_hid = encoder(input_tensor[ei], encoder_hid)
+            encoder_outputs[ei] += encoder_out[0, 0]
 
-        decoder_input = torch.tensor([[source_vocab.index('<SOW>')]], device=device)
-        decoder_hidden = encoder_hidden
+        decoder_inp = torch.tensor([[source_vocab.index('<SOW>')]], device=device)
+        decoder_hid = encoder_hid
 
         decoded_words, decoded_ids = [], []  # decoded_ids を追加
-        decoder_attentions = torch.zeros(max_length, max_length)
+        decoder_attns = torch.zeros(max_length, max_length)
 
         for di in range(max_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(
-                decoder_input, decoder_hidden, encoder_outputs, device=device)
-            decoder_attentions[di] = decoder_attention.data
-            topv, topi = decoder_output.data.topk(1)
+            decoder_out, decoder_hid, decoder_attn = decoder(
+                decoder_inp, decoder_hid, encoder_outputs, device=device)
+            decoder_attns[di] = decoder_attn.data
+            topv, topi = decoder_out.data.topk(1)
             decoded_ids.append(int(topi.squeeze().detach())) # decoded_ids に追加
             if topi.item() == target_vocab.index('<EOW>'):
                 decoded_words.append('<EOW>')
@@ -185,10 +114,9 @@ def evaluate(
             else:
                 decoded_words.append(target_vocab[topi.item()])
 
-            decoder_input = topi.squeeze().detach()
+            decoder_inp = topi.squeeze().detach()
 
-        return decoded_words, decoded_ids, decoder_attentions[:di + 1]  # decoded_ids を返すように変更
-        #return decoded_words, decoder_attentions[:di + 1]
+        return decoded_words, decoded_ids, decoder_attns[:di + 1]  # decoded_ids を返すように変更
 
 
 def check_vals_performance(
@@ -199,7 +127,8 @@ def check_vals_performance(
     source_vocab=None,
     target_vocab=None,
     source_ids=None,
-    target_ids=None):
+    target_ids=None,
+    device=device):
 
     if _dataset == None or encoder == None or decoder == None or max_length == 0 or source_vocab == None:
         return
@@ -210,12 +139,14 @@ def check_vals_performance(
         for i in range(_dataset[_x].__len__()):
             #_input_ids, _target_ids = _dataset.__getitem__(i)
             _input_ids, _target_ids = _dataset[_x].__getitem__(i)
-            _output_words, _output_ids, _attentions = evaluate(encoder, decoder, _input_ids,
-                                                               max_length,
+            _output_words, _output_ids, _attentions = evaluate(encoder=encoder, decoder=decoder, 
+                                                               input_ids=_input_ids,
+                                                               max_length=max_length,
                                                                source_vocab=source_vocab,
                                                                target_vocab=target_vocab,
-                                                               source_ids=source_ids,
-                                                               target_ids=target_ids,
+                                                               #source_ids=source_ids,
+                                                               #target_ids=target_ids,
+                                                               device=device,
                                                                )
             ok_count += 1 if _target_ids == _output_ids else 0
         #print(f'{_x}:{ok_count/_dataset.__len__():.3f},',end="")
@@ -246,7 +177,8 @@ def _train(
 
     input_length = input_tensor.size(0)   # 0 次元目が系列であることを仮定
     target_length = target_tensor.size(0)
-    encoder_outputs = torch.zeros(max_length, encoder.n_hid, device=device)
+    encoder_outputs = torch.zeros(input_length, encoder.n_hid, device=device)
+    #encoder_outputs = torch.zeros(max_length, encoder.n_hid, device=device)
 
     loss = 0.  # 損失関数値
     for ei in range(input_length):
@@ -370,59 +302,3 @@ def _fit(encoder:torch.nn.Module,
             evaluateRandomly(encoder, decoder, n=n_sample)
 
     return losses
-
-
-class Onechar_dataset(torch.utils.data.Dataset):  # _vocab.train_data):
-    """1.3.4 一文字データセットの定義"""
-
-    def __init__(self,
-                 source: str = 'orth',
-                 target: str = 'mora_p',
-                 yomi=None,
-                 _vocab=None):
-
-        super().__init__()
-
-        _src = source
-        _tgt = target
-
-        _src = 'mora' if _src == 'mora_p' else _src
-        _tgt = 'mora' if _tgt == 'mora_p' else _tgt
-        _src, _tgt = _src+'_ids', _tgt+'_ids'
-
-        digit_alpha = '０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ'  # ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ'
-        hira = 'あいうえおかがきぎくぐけげこごさざしじすずせぜそぞただちぢつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもやゆよらりるれろわゐゑをん'
-        kata = 'アイウエオカガキギクグケゲコゴサザシジスズセゼソゾタダチヂツヅテデトドナニヌネノハバパヒビピフブプヘベペホボポマミムメモヤユヨラリルレロワヰヱヲン'
-        onechars = digit_alpha+hira  # +kata
-
-        data_dict = {}
-        for i, orth in enumerate(onechars):
-            _yomi = yomi(orth).strip()
-            hira = jaconv.kata2hira(_yomi)
-            phon_juli = jaconv.hiragana2julius(hira).split(' ')
-            phon_ids = _vocab.phon_tkn2ids(phon_juli)
-            orth_ids = _vocab.orth_tkn2ids(orth)
-
-            _data = {'_yomi': _yomi,
-                     'phon': phon_juli,
-                     'phon_ids': phon_ids,
-                     'orth': orth,
-                     'orth_ids': orth_ids}
-            __src, __tgt = _data[_src], _data[_tgt]
-            data_dict[i] = {'yomi': _yomi,
-                            'orth': orth,
-                            'src': __src,
-                            'tgt': __tgt,
-                            '_phon': phon_juli,
-                            'phon_ids': phon_ids,
-                            'orth_ids': orth_ids}
-
-        self.data_dict = data_dict
-
-    def __len__(self) -> int:
-        return len(self.data_dict)
-
-    def __getitem__(self, x: int):
-        _data = self.data_dict[x]
-        return _data['src'], _data['tgt']
-
