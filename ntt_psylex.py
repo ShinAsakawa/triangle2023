@@ -233,10 +233,10 @@ class psylex71_dataset(torch.utils.data.Dataset):
                 #self.train_vocab = [self.train_data[x]['orig'] for x in self.train_data.keys()]
                 break
 
-        self.max_orth_length = max_orth_length
-        self.max_phon_length = max_phon_length
-        self.max_mora_length = max_mora_length
-        self.max_mora_p_length = max_mora_p_length
+        self.max_orth_length = max_orth_length + 1   # + 1 するのは <EOW> トークンを加えるため
+        self.max_phon_length = max_phon_length + 1
+        self.max_mora_length = max_mora_length + 1
+        self.max_mora_p_length = max_mora_p_length + 1
 
         self.word_list = [v['orig'] for k, v in self.train_data.items()]
         self.order = {i: self.train_data[x]
@@ -1048,7 +1048,7 @@ class psylex71_dataset(torch.utils.data.Dataset):
 
         if ps71_fname == None:
             # データファイルの保存してあるディレクトリの指定
-            ntt_dir = 'triangle2023'
+            ntt_dir = 'ccap'
             psy71_fname = 'psylex71utf8.txt'  # ファイル名
             psy71_fname = 'psylex71utf8.txt.gz'  # ファイル名
             # with gzip.open(os.path.join(ntt_dir,psy71_fname), 'r') as f:

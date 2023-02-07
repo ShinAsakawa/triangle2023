@@ -9,7 +9,66 @@ import numpy as np
 import time
 import jaconv
 
+import operator
+import matplotlib.pyplot as plt
+import japanize_matplotlib
+
 device="cuda:0" if torch.cuda.is_available() else "cpu"
+
+def psylex_word_char_histgram(
+    _dict:dict=None, #psylex71.train_data,
+    key:str='orig',  # or 'phon'
+    title:str=None,
+    topN:int=100,
+    figsize=(20,4),
+    figsize2=(14,4)):
+
+    if title == None:
+        title = key
+    chr_count, len_count = {}, {}
+    for k, v in _dict.items():
+        wrd = v[key]
+        wrd_len = len(wrd)
+        for ch in wrd:
+            if ch in chr_count:
+                chr_count[ch] += 1
+            else:
+                chr_count[ch] = 1
+
+        if wrd_len in len_count:
+            len_count[wrd_len] += 1
+        else:
+            len_count[wrd_len] = 1
+
+    N_chr=np.array([v for v in chr_count.values()]).sum()
+
+    if topN > len(chr_count):
+        topN = len(chr_count)
+
+    chr_count_sorted = sorted(chr_count.items(), key=operator.itemgetter(1), reverse=True)
+    plt.figure(figsize=figsize)
+    plt.bar(range(topN), [x[1]/N_chr for x in chr_count_sorted[:topN]])
+    plt.xticks(ticks=range(topN), labels=[c[0] for c in chr_count_sorted[:topN]])
+
+    if topN == len(chr_count):
+        plt.title(f'{title}項目頻度')
+    else:
+        plt.title(f'{title}項目頻度 (上位:{topN} 語)')
+    plt.ylabel('相対頻度')
+    plt.show()
+
+
+    N_len=np.array([v for v in len_count.values()]).sum()
+
+    len_count_sorted = sorted(len_count.items(), key=operator.itemgetter(0), reverse=False)
+    plt.figure(figsize=figsize2)
+    plt.bar(range(len(len_count_sorted)), [x[1]/N_len for x in len_count_sorted])
+    plt.xticks(ticks=range(len(len_count_sorted)), labels=[c[0] for c in len_count_sorted])
+    plt.ylabel(f'{title}相対頻度')
+    plt.title(f'{title}項目長頻度')
+    plt.show()
+
+
 
 def convert_ids2tensor(
     sentence_ids:list,
@@ -83,7 +142,7 @@ def evaluate(
     target_vocab:list=None,
     #source_ids:list=None,
     #target_ids:list=None,
-    device=device):
+    device:torch.device=device):
 
     with torch.no_grad():
         input_tensor = convert_ids2tensor(input_ids)
@@ -120,37 +179,35 @@ def evaluate(
 
 
 def check_vals_performance(
-    encoder=None,
-    decoder=None,
-    _dataset=None,
-    max_length=0,
-    source_vocab=None,
-    target_vocab=None,
-    source_ids=None,
-    target_ids=None,
-    device=device):
+    encoder:torch.nn.Module=None,
+    decoder:torch.nn.Module=None,
+    _dataset:torch.utils.data.Dataset=None,
+    max_length:int=0,
+    source_vocab:list=None,
+    target_vocab:list=None,
+    #source_ids=None,
+    #target_ids=None,
+    device:torch.device=device):
 
     if _dataset == None or encoder == None or decoder == None or max_length == 0 or source_vocab == None:
-        return
-    print('検証データ:',end="")
+        print('Something wrong')
+        sys.exit()
     for _x in _dataset:
         ok_count = 0
         #for i in range(_dataset.__len__()):
         for i in range(_dataset[_x].__len__()):
             #_input_ids, _target_ids = _dataset.__getitem__(i)
             _input_ids, _target_ids = _dataset[_x].__getitem__(i)
-            _output_words, _output_ids, _attentions = evaluate(encoder=encoder, decoder=decoder, 
-                                                               input_ids=_input_ids,
-                                                               max_length=max_length,
-                                                               source_vocab=source_vocab,
-                                                               target_vocab=target_vocab,
-                                                               #source_ids=source_ids,
-                                                               #target_ids=target_ids,
-                                                               device=device,
-                                                               )
+            _output_words, _output_ids, _attentions = evaluate(
+                encoder=encoder, decoder=decoder,
+                source_vocab=source_vocab, target_vocab=target_vocab,
+                input_ids=_input_ids,
+                max_length=max_length,
+                #source_ids=source_ids, #target_ids=target_ids,
+                device=device)
             ok_count += 1 if _target_ids == _output_ids else 0
         #print(f'{_x}:{ok_count/_dataset.__len__():.3f},',end="")
-        print(f'{_x}:{ok_count/_dataset[_x].__len__():.3f},',end="")
+        print(f'{_x}:{ok_count/_dataset[_x].__len__():.3f},',end=" ")
     print()
 
 
@@ -242,7 +299,7 @@ def _fit(encoder:torch.nn.Module,
          target_ids:list=None,
          params:dict=None,
          max_length:int=1,
-         device=device,
+         device:torch.device=device,
          #device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
         )->list:
 

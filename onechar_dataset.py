@@ -36,9 +36,9 @@ class Onechar_dataset(torch.utils.data.Dataset):
         # kata = 'アイウエオカガキギクグケゲコゴサザシジスズセゼソゾタダチヂツヅテデトドナニヌネノハバパヒビピフブプヘベペホボポマミムメモヤユヨラリルレロワヰヱヲン'
         # onechars = digit_alpha+hira  # +kata
 
-        self.phon_vocab = ['<PAD>', '<EOW>', '<SOW>', '<UNK>', 
-                           'N', 'a', 'a:', 'e', 'e:', 'i', 'i:', 'i::', 'o', 'o:', 'o::', 'u', 
-                           'u:', 'b', 'by', 'ch', 'd', 'dy', 'f', 'g', 'gy', 'h', 'hy', 'j', 'k', 'ky', 
+        self.phon_vocab = ['<PAD>', '<EOW>', '<SOW>', '<UNK>',
+                           'N', 'a', 'a:', 'e', 'e:', 'i', 'i:', 'i::', 'o', 'o:', 'o::', 'u',
+                           'u:', 'b', 'by', 'ch', 'd', 'dy', 'f', 'g', 'gy', 'h', 'hy', 'j', 'k', 'ky',
                            'm', 'my', 'n', 'ny', 'p', 'py', 'q', 'r', 'ry', 's', 'sh', 't', 'ts', 'w', 'y', 'z']
 
         self.orth_vocab =  ['<PAD>', '<EOW>', '<SOW>', '<UNK>']
@@ -78,8 +78,7 @@ class Onechar_dataset(torch.utils.data.Dataset):
         self.max_orth_length = max_orth_length
         self.max_phon_length = max_phon_length
         self.data_dict = data_dict
-        self.set_source_and_target_from_params(source=source,
-											   target=target)
+        self.set_source_and_target_from_params()
 
     def __len__(self) -> int:
         return len(self.data_dict)
@@ -103,70 +102,65 @@ class Onechar_dataset(torch.utils.data.Dataset):
         #return list(self.data_dict[x][self.source_ids]) + [self.source_vocab.index('<EOW>')], self.data_dict[x][self.target_ids] + [self.target_vocab.index('<EOW>')]
 
 
-    def set_source_and_target_from_params(
-        self,
-        source:str='orth',
-        target:str='phon',
-        is_print:bool = True):
+    def set_source_and_target_from_params(self, is_print:bool = True):
 
         # ソースとターゲットを設定しておく
-
-        if source == 'orth':
+        if self.source == 'orth':
             self.source_vocab = self.orth_vocab
             self.source_ids = 'orth_ids'
             self.source_maxlen = self.max_orth_length
             self.source_ids2tkn = self.orth_ids2tkn
             self.source_tkn2ids = self.orth_tkn2ids
-        elif source == 'phon':
+        elif self.source == 'phon':
             self.source_vocab = self.phon_vocab
             self.source_ids = 'phon_ids'
             self.source_maxlen = self.max_phon_length
             self.source_ids2tkn = self.phon_ids2tkn
             self.source_tkn2ids = self.phon_tkn2ids
-        elif source == 'mora':
+        elif self.source == 'mora':
             self.source_vocab = self.mora_vocab
             self.source_ids = 'mora_ids'
             self.source_maxlen = self.max_mora_length
             #self.source_ids2tkn = self.mora_ids2tkn
             #self.source_tkn2ids = self.mora_tkn2ids
-        elif source == 'mora_p':
+        elif self.source == 'mora_p':
             self.source_vocab = self.mora_p_vocab
             self.source_ids = 'mora_p_ids'
             self.source_maxlen = self.max_mora_p_length
             #self.source_ids2tkn = self.mora_p_ids2tkn
             #self.source_tkn2ids = self.mora_p_tkn2ids
-        elif source == 'mora_p_r':
+        elif self.source == 'mora_p_r':
             self.source_vocab = self.mora_p_vocab
             self.source_ids = 'mora_p_ids_r'
             self.source_maxlen = self.max_mora_p_length
             #self.source_ids2tkn = self.mora_p_r_ids2tkn
             #self.source_tkn2ids = self.mora_p_r_tkn2ids
 
-        if target == 'orth':
+        if self.target == 'orth':
             self.target_vocab = self.orth_vocab
             self.target_ids = 'orth_ids'
             self.target_maxlen = self.max_orth_length
             self.target_ids2tkn = self.orth_ids2tkn
             self.target_tkn2ids = self.orth_tkn2ids
-        elif target == 'phon':
+        elif self.target == 'phon':
             self.target_vocab = self.phon_vocab
             self.target_ids = 'phon_ids'
             self.target_maxlen = self.max_phon_length
             self.target_ids2tkn = self.phon_ids2tkn
             self.target_tkn2ids = self.phon_tkn2ids
-        elif target == 'mora':
+        elif self.target == 'mora':
             self.target_vocab = self.mora_vocab
             self.target_ids = 'mora_ids'
             self.target_maxlen = self.max_mora_length
             #self.target_ids2tkn = self.mora_ids2tkn
             #self.target_tkn2ids = self.mora_tkn2ids
-        elif target == 'mora_p':
+        elif self.target == 'mora_p':
             self.target_vocab = self.mora_p_vocab
             self.target_ids = 'mora_p_ids'
             self.target_maxlen = self.max_mora_p_length
             #self.target_ids2tkn = self.mora_p_ids2tkn
             #self.target_tkn2ids = self.mora_p_tkn2ids
-        elif target == 'mora_p_r':
+        elif self.target == 'mora_p_r':
             self.target_vocab = self.mora_p_vocab
             self.target_ids = 'mora_p_ids_r'
             self.target_maxlen = self.max_mora_p_length
@@ -176,14 +170,13 @@ class Onechar_dataset(torch.utils.data.Dataset):
         if is_print:
             print(colored(f'self.source:{self.source}', 'blue',
                         attrs=['bold']), f'{self.source_vocab}')
-            print(colored(f'self.target:{target}', 'cyan',
+            print(colored(f'self.target:{self.target}', 'cyan',
                         attrs=['bold']), f'{self.target_vocab}')
             print(colored(f'self.source_ids:{self.source_ids}',
                         'blue', attrs=['bold']), f'{self.source_ids}')
             print(colored(f'self.target_ids:{self.target_ids}',
                         'cyan', attrs=['bold']), f'{self.target_ids}')
 
-        return # source_vocab, source_ids, target_vocab, target_ids
 
     def orth_ids2tkn(self, ids: list):
         return [self.orth_vocab[idx] for idx in ids]

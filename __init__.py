@@ -11,3 +11,4 @@ from .utils import *
 from .ntt_psylex import *
 from .fushimi1999 import *
 from .onechar_dataset import *
+from .char_ja import *
